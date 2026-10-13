@@ -897,11 +897,36 @@
             });
             database.ref('headmaster').on('value', snap => { if(snap.exists()) { headmasterData = { ...headmasterData, ...snap.val() }; updateHeadmasterDashboardUI(); } });
             
-            database.ref('teachers').on('value', snap => { 
-                teachersData = []; if(snap.exists()) snap.forEach(child => teachersData.push(child.val())); 
-                localStorage.setItem('mb_teachers', JSON.stringify(teachersData)); 
-                if(typeof renderTeacherDirectory === 'function') renderTeacherDirectory(); 
-                if(document.getElementById('admin_teacher_list_container') && typeof renderAdminTeacherList === 'function') renderAdminTeacherList(); 
+            database.ref('teachers').on('value', snap => {
+                teachersData = [];
+                if(snap.exists()) {
+                    snap.forEach(child => {
+                        let d = child.val();
+                        if(typeof d === 'object') {
+                            d.id = child.key; 
+                            teachersData.push(d);
+                        }
+                    });
+                }
+                localStorage.setItem('mb_teachers', JSON.stringify(teachersData));
+                if(typeof renderTeacherDirectory === 'function') renderTeacherDirectory();
+                if(document.getElementById('admin_teacher_list_container') && typeof renderAdminTeacherList === 'function') renderAdminTeacherList();
+            });
+
+            database.ref('staff').on('value', snap => {
+                staffData = [];
+                if(snap.exists()) {
+                    snap.forEach(child => {
+                        let d = child.val();
+                        if(typeof d === 'object') {
+                            d.id = child.key;
+                            staffData.push(d);
+                        }
+                    });
+                }
+                localStorage.setItem('mb_staff', JSON.stringify(staffData));
+                if(typeof renderTeacherDirectory === 'function') renderTeacherDirectory();
+                if(document.getElementById('admin_teacher_list_container') && typeof renderAdminTeacherList === 'function') renderAdminTeacherList();
             });
             
             database.ref('staff').on('value', snap => { 
@@ -1114,8 +1139,19 @@
         function openStudentReceipts(stdId) { currentViewingStudentId = stdId; let std = studentsData.find(s => s.id === stdId); if(!std) return; document.getElementById('receipt_list_student_name').innerText = std.name + " এর রসিদ সমূহ"; let container = document.getElementById('receipts_container'); container.innerHTML = ''; if(!std.receipts || Object.keys(std.receipts).length === 0) { container.innerHTML = `<p class="text-center text-muted mt-4">কোনো পেমেন্ট রসিদ পাওয়া যায়নি।</p>`; } else { let receiptArray = Object.keys(std.receipts).map(k => std.receipts[k]); receiptArray.forEach(r => { container.innerHTML += `<div class="student-list-item border-left-blue shadow-sm" style="cursor:pointer;" onclick='viewSpecificReceipt(${JSON.stringify(r)})'><div><h6 class="mb-0 fw-bold">রশিদ নং: ${r.rNo}</h6><small class="text-muted">তারিখ: ${r.date}</small></div><div class="text-end"><h6 class="text-success fw-bold mb-0">৳ ${toBanglaNum(r.total)}</h6><button class="btn btn-sm btn-primary mt-1 px-3">দেখুন</button></div></div>`; }); } showPage('studentReceiptsList'); }
         function viewSpecificReceipt(receiptDataObj) { renderReceiptView(receiptDataObj); }
 
-        function getNextTeacherId() { let ids = teachersData.map(t => parseInt((t.id||"").replace('T-', ''))).filter(n => !isNaN(n)); let nextId = 102; while(ids.includes(nextId)) nextId++; return 'T-' + nextId; }
-        function getNextStaffId() { let ids = staffData.map(t => parseInt((t.id||"").replace('E-', ''))).filter(n => !isNaN(n)); let nextId = 101; while(ids.includes(nextId)) nextId++; return 'E-' + nextId; }
+        function getNextTeacherId() {
+            let ids = teachersData.map(t => parseInt(String(t.id || "").replace('T-', ''))).filter(n => !isNaN(n));
+            let nextId = 102;
+            while(ids.includes(nextId)) nextId++;
+            return 'T-' + nextId;
+        }
+
+        function getNextStaffId() {
+            let ids = staffData.map(t => parseInt(String(t.id || "").replace('E-', ''))).filter(n => !isNaN(n));
+            let nextId = 101;
+            while(ids.includes(nextId)) nextId++;
+            return 'E-' + nextId;
+        }
         function openAddTeacher() { document.getElementById('add_t_role').value = 'teacher'; toggleTeacherStaffFields(); document.getElementById('add_t_pass_field').value = 'r1234'; document.getElementById('add_t_join_date').value = getTodayISODate(); showPage('adminAddTeacher'); }
         function toggleTeacherStaffFields() { let role = document.getElementById('add_t_role').value; document.getElementById('add_t_id_field').value = (role === 'teacher') ? getNextTeacherId() : getNextStaffId(); document.getElementById('div_desig_field').style.display = (role === 'teacher') ? 'block' : 'none'; }
         
