@@ -929,11 +929,20 @@
                 if(document.getElementById('admin_teacher_list_container') && typeof renderAdminTeacherList === 'function') renderAdminTeacherList();
             });
             
-            database.ref('staff').on('value', snap => { 
-                staffData = []; if(snap.exists()) snap.forEach(child => staffData.push(child.val())); 
-                localStorage.setItem('mb_staff', JSON.stringify(staffData)); 
-                if(typeof renderTeacherDirectory === 'function') renderTeacherDirectory(); 
-                if(document.getElementById('admin_teacher_list_container') && typeof renderAdminTeacherList === 'function') renderAdminTeacherList(); 
+            database.ref('staff').on('value', snap => {
+                staffData = [];
+                if(snap.exists()) {
+                    snap.forEach(child => {
+                        let d = child.val();
+                        if(typeof d === 'object') {
+                            d.id = child.key; // এটি ড্রাইভার ও স্টাফদের আইডি ফিক্স করবে
+                            staffData.push(d);
+                        }
+                    });
+                }
+                localStorage.setItem('mb_staff', JSON.stringify(staffData));
+                if(typeof renderTeacherDirectory === 'function') renderTeacherDirectory();
+                if(document.getElementById('admin_teacher_list_container') && typeof renderAdminTeacherList === 'function') renderAdminTeacherList();
             });
             
             database.ref('students').on('value', snap => { 
@@ -1146,7 +1155,7 @@
             return 'T-' + nextId;
         }
 
-        function getNextStaffId() {
+       function getNextStaffId() {
             let ids = staffData.map(t => parseInt(String(t.id || "").replace('E-', ''))).filter(n => !isNaN(n));
             let nextId = 101;
             while(ids.includes(nextId)) nextId++;
