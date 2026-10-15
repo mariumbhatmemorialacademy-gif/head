@@ -974,8 +974,20 @@
             database.ref('pendingGallery').on('value', snap => { pendingGalleryImages = []; if(snap.exists()) { snap.forEach(child => pendingGalleryImages.push({key: child.key, url: child.val()})); } if(typeof renderAdminPendingGallery === 'function') renderAdminPendingGallery(); });
             database.ref('income').on('value', snap => { incomeData = []; if(snap.exists()) { snap.forEach(child => { let data = child.val(); data.key = child.key; incomeData.push(data); }); } if(typeof renderIncomeList === 'function') renderIncomeList(); });
             database.ref('expense').on('value', snap => { expenseData = []; if(snap.exists()) { snap.forEach(child => { let data = child.val(); data.key = child.key; expenseData.push(data); }); } if(typeof renderExpenseList === 'function') renderExpenseList(); });
-            database.ref('messages_to_teachers').on('value', snap => { schoolInboxData = []; if(snap.exists()) { snap.forEach(child => { let d = child.val(); d.key = child.key; schoolInboxData.push(d); }); } if(typeof renderSchoolInbox === 'function') renderSchoolInbox(); });
-            database.ref('messages_from_maker').on('value', snap => { makerMessagesData = []; if(snap.exists()) { snap.forEach(child => { let d = child.val(); d.key = child.key; makerMessagesData.push(d); }); } if(typeof renderMakerInbox === 'function') renderMakerInbox(); });
+database.ref('messages_to_teachers').on('value', snap => { 
+                schoolInboxData = []; 
+                if(snap.exists()) { 
+                    snap.forEach(child => { 
+                        let d = child.val(); 
+                        // শুধুমাত্র সঠিক অবজেক্ট হলে ইনবক্সে পুশ করবে, যাতে অ্যাপ ক্র্যাশ না করে
+                        if(typeof d === 'object' && d !== null) {
+                            d.key = child.key; 
+                            schoolInboxData.push(d); 
+                        }
+                    }); 
+                } 
+                if(typeof renderSchoolInbox === 'function') renderSchoolInbox(); 
+            });            database.ref('messages_from_maker').on('value', snap => { makerMessagesData = []; if(snap.exists()) { snap.forEach(child => { let d = child.val(); d.key = child.key; makerMessagesData.push(d); }); } if(typeof renderMakerInbox === 'function') renderMakerInbox(); });
             database.ref('notice').on('value', snap => { let nEl = document.getElementById('homeNoticeText'); if(nEl && snap.exists()) { let v = snap.val(); nEl.innerText = typeof v === 'string' ? v : (v.text || v.message || JSON.stringify(v)); } });
         }
 
@@ -1443,18 +1455,38 @@
         function publishPublicNotice() { let note = document.getElementById('public_notice_input').value; if(note.trim() === "") { customAlert("নোটিশ লিখুন!"); return; } database.ref('notice').set(note).then(() => { customAlert("নোটিশ প্রকাশিত হয়েছে!"); document.getElementById('public_notice_input').value = ""; }); }
         
         function renderSchoolInbox() {
-            let container = document.getElementById('school_inbox_container'); if(!container) return; container.innerHTML = '';
+            let container = document.getElementById('school_inbox_container'); 
+            if(!container) return; 
+            container.innerHTML = '';
+            
+            // ফিল্টার সহজ করা হলো: প্রধান শিক্ষক (admin) সব মেসেজ দেখতে পাবেন
             let filteredMessages = schoolInboxData.filter(msg => {
+                if(userRole === 'admin') return true; 
                 let target = (msg.receiver || msg.target || msg.to || msg.targetRole || "").toLowerCase();
-                if(!target) return userRole === 'admin'; 
-                if(userRole === 'admin' && (target.includes('headmaster') || target.includes('admin') || target === 't-101')) return true;
                 if(userRole === 'staff' && (target.includes('staff') || target.includes('office') || target.startsWith('e-') || target === 'accountant')) return true;
                 return false;
             });
-            if(filteredMessages.length === 0) { container.innerHTML = `<p class="text-center text-muted mb-0">ইনবক্সে কোনো মেসেজ নেই।</p>`; return; }
+            
+            if(filteredMessages.length === 0) { 
+                container.innerHTML = `<p class="text-center text-muted mb-0">ইনবক্সে কোনো মেসেজ নেই।</p>`; 
+                return; 
+            }
+            
             [...filteredMessages].reverse().forEach(msg => { 
-                let sName = msg.studentName || msg.name || "শিক্ষার্থী"; let sClass = msg.className || msg.class || msg.studentClass || "অজ্ঞাত ক্লাস"; let msgText = msg.text || msg.message || msg.msg || "কোনো মেসেজ নেই";
-                container.innerHTML += `<div class="card bg-light border-0 mb-3 border-left-purple shadow-sm"><div class="card-body p-3"><div class="d-flex justify-content-between mb-2"><span class="badge bg-purple" style="background-color: #9c27b0;">${sName} (${sClass})</span><small class="text-muted fw-bold">${msg.date ? toBanglaDate(msg.date) : ''}</small></div><p class="mb-3 text-dark" style="font-size: 14px; line-height: 1.5;">${msgText}</p><button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="deleteSchoolInboxMsg('${msg.key}')"><i class="fas fa-trash"></i> ডিলিট করুন</button></div></div>`; 
+                let sName = msg.studentName || msg.name || "শিক্ষার্থী"; 
+                let sClass = msg.className || msg.class || msg.studentClass || "অজ্ঞাত ক্লাস"; 
+                let msgText = msg.text || msg.message || msg.msg || "কোনো মেসেজ নেই";
+                
+                container.innerHTML += `<div class="card bg-light border-0 mb-3 border-left-purple shadow-sm">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-purple" style="background-color: #9c27b0;">${sName} (${sClass})</span>
+                            <small class="text-muted fw-bold">${msg.date ? toBanglaDate(msg.date) : ''}</small>
+                        </div>
+                        <p class="mb-3 text-dark" style="font-size: 14px; line-height: 1.5;">${msgText}</p>
+                        <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="deleteSchoolInboxMsg('${msg.key}')"><i class="fas fa-trash"></i> ডিলিট করুন</button>
+                    </div>
+                </div>`; 
             });
         }
         function deleteSchoolInboxMsg(key) { customConfirm("মেসেজটি মুছে ফেলতে চান?", () => { database.ref('messages_to_teachers/' + key).remove().then(() => { customAlert("মেসেজ মুছে ফেলা হয়েছে।"); }); }); }
